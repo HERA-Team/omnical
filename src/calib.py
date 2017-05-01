@@ -28,6 +28,16 @@ __version__ = '5.0.2'
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 
+class FirstCalRedundantInfo(info.FirstCalRedundantInfo):
+    def order_data(self, dd):
+        '''Create a data array ordered for use in _omnical.redcal.  'dd' is
+        a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect
+        the conjugation convention of the provided data.  'dd' values are 2D arrays
+        of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
+        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
+            for bl in self.bl_order()]).transpose((1,2,0))
+
+
 class RedundantInfo(info.RedundantInfo):
     def __init__(self, filename=None):
         info.RedundantInfo.__init__(self, filename)
