@@ -207,7 +207,7 @@ def redcal(data, info, xtalk=None, gains=None, vis=None,
 def logcal(data, info, gains=None, xtalk=None, maxiter=50, conv=1e-3, stepsize=.3, trust_period=1):
     '''Perform logcal. Calls redcal() function with logcal=True.'''
 
-    m, g, v = redcal(data, info, gains=gains, uselogcal=True, xtalk=xtalk,
+    m, g, v = redcal(data, info, gains=gains, uselogcal=True, uselincal=False, removedegen=False, xtalk=xtalk,
                      conv=conv, stepsize=stepsize,
                      trust_period=trust_period, maxiter=maxiter)
 
@@ -218,7 +218,7 @@ def lincal(data, info, gains=None, vis=None, xtalk=None, maxiter=50, conv=1e-3,
            stepsize=.3, trust_period=1):
     '''Perform lincal. Calls redcal() function with lincal=True.'''
 
-    m, g, v = redcal(data, info, gains=gains, vis=vis, uselincal=True, xtalk=xtalk,
+    m, g, v = redcal(data, info, gains=gains, vis=vis, uselincal=True, uselogcal=False, removedegen=False, xtalk=xtalk,
                      conv=conv, stepsize=stepsize,
                      trust_period=trust_period, maxiter=maxiter)
 
@@ -229,7 +229,7 @@ def removedegen(data, info, gains, vis, **kwargs):
     '''Run removedegen by calling redcal with removedegen=True'''
     # XXX make data an optional parameter into redcal
 
-    m, g, v = redcal(data, info, gains=gains, vis=vis, removedegen=True, **kwargs)
+    m, g, v = redcal(data, info, gains=gains, vis=vis, removedegen=True, uselogcal=False, uselincal=False, **kwargs)
 
     return m, g, v
 
