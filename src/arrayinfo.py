@@ -1,6 +1,10 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import absolute_import, division, print_function
 import numpy as np
 import itertools
-from info import RedundantInfo
+from .info import RedundantInfo
+from functools import reduce
 
 def filter_reds(reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None, ex_ubls=None):
     '''Filter redundancies to include/exclude the specified bls, antennas, and unique bl groups.'''
@@ -8,9 +12,9 @@ def filter_reds(reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None,
         bl2gp = {}
         for i,gp in enumerate(reds):
             for bl in gp: bl2gp[bl] = bl2gp[bl[::-1]] = bl2gp.get(bl,[]) + [i]
-        if ubls: ubls = reduce(lambda x,y: x+y, [bl2gp[bl] for bl in ubls if bl2gp.has_key(bl)])
-        else: ubls = range(len(reds))
-        if ex_ubls: ex_ubls = reduce(lambda x,y: x+y, [bl2gp[bl] for bl in ex_ubls if bl2gp.has_key(bl)])
+        if ubls: ubls = reduce(lambda x,y: x+y, [bl2gp[bl] for bl in ubls if bl in bl2gp])
+        else: ubls = list(range(len(reds)))
+        if ex_ubls: ex_ubls = reduce(lambda x,y: x+y, [bl2gp[bl] for bl in ex_ubls if bl in bl2gp])
         else: ex_ubls = []
         reds = [gp for i,gp in enumerate(reds) if i in ubls and i not in ex_ubls]
     if bls is None: bls = [bl for gp in reds for bl in gp]
@@ -19,14 +23,14 @@ def filter_reds(reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None,
     if ex_ants: bls = [(i,j) for i,j in bls if i not in ex_ants and j not in ex_ants]
     bld = {}
     for bl in bls: bld[bl] = bld[bl[::-1]] = None
-    reds = [[bl for bl in gp if bld.has_key(bl)] for gp in reds]
+    reds = [[bl for bl in gp if bl in bld] for gp in reds]
     return [gp for gp in reds if len(gp) > 1]
 
 def compute_reds(antpos, tol=0.1):
     '''Return redundancies on the basis of antenna positions.  As in RedundantInfo.init_from_reds, each
     list element consists of a list of (i,j) antenna indices whose separation vectors (pos[j]-pos[i])
     fall within the specified tolerance of each other.  'antpos' is a (nant,3) array of antenna positions.'''
-    bls = [(i,j) for i in xrange(antpos.shape[0]) for j in xrange(i+1,antpos.shape[0])]
+    bls = [(i,j) for i in range(antpos.shape[0]) for j in range(i+1,antpos.shape[0])]
     # Coarsely sort bls using absolute grid (i.e. not relative separations); some groups may have several uids
     def sep(i,j): return antpos[j] - antpos[i]
     def uid(s): return tuple(map(int,np.around(s/tol)))
@@ -39,22 +43,22 @@ def compute_reds(antpos, tol=0.1):
     # Now combine neighbors and Hermitian neighbors if within tol
     def neighbors(u):
         for du in itertools.product((-1,0,1),(-1,0,1),(-1,0,1)): yield (u[0]+du[0],u[1]+du[1],u[2]+du[2])
-    for u in ubl_v.keys(): # Using 'keys' here allows dicts to be modified, but results in missing keys
-        if not ubl_v.has_key(u): continue # bail if this has been popped already
+    for u in list(ubl_v.keys()): # Using 'keys' here allows dicts to be modified, but results in missing keys
+        if u not in ubl_v: continue # bail if this has been popped already
         for nu in neighbors(u):
-            if not ubl_v.has_key(nu): continue # bail if nonexistant
+            if nu not in ubl_v: continue # bail if nonexistant
             if u == nu: continue
             if np.linalg.norm(ubl_v[u] - ubl_v[nu]) < tol:
                 ubl_v[u] = ubl_v[u] * len(ublgp[u]) + ubl_v.pop(nu) * len(ublgp[nu])
                 ublgp[u] += ublgp.pop(nu)
                 ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
         for nu in neighbors((-u[0],-u[1],-u[2])): # Find Hermitian neighbors
-            if not ubl_v.has_key(nu): continue # bail if nonexistant
+            if nu not in ubl_v: continue # bail if nonexistant
             if np.linalg.norm(ubl_v[u] + ubl_v[nu]) < tol: # note sign reversal
                 ubl_v[u] = ubl_v[u] * len(ublgp[u]) - ubl_v.pop(nu) * len(ublgp[nu]) # note sign reversal
                 ublgp[u] += [(j,i) for i,j in ublgp.pop(nu)]
                 ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
-    return [v for v in ublgp.values() if len(v) > 1] # no such thing as redundancy of one
+    return [v for v in list(ublgp.values()) if len(v) > 1] # no such thing as redundancy of one
 
 class ArrayInfo:
     '''Store information about an antenna array needed for computing redundancy and indexing matrices.'''
@@ -80,7 +84,7 @@ class ArrayInfo:
     def compute_redundantinfo(self, tol=1e-6):
         '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
         reds = self.compute_reds(tol=tol)
-        reds = self.filter_reds(reds, bls=self.totalVisibilityId.keys(), 
+        reds = self.filter_reds(reds, bls=list(self.totalVisibilityId.keys()), 
                 ex_ants=list(self.badAntenna), ex_ubls=[tuple(p) for p in self.badUBLpair])
         info = RedundantInfo()
         info.init_from_reds(reds, self.antennaLocation)
@@ -111,14 +115,14 @@ class ArrayInfoLegacy(ArrayInfo):
         of error when checking redundancy, antenna locations, and visibility's 
         antenna pairing conventions. Unlike redundant info which is a self-contained 
         dictionary, items in array info each have their own fields in the instance.'''
-        if verbose: print "Reading", arrayinfopath
+        if verbose: print("Reading", arrayinfopath)
         with open(arrayinfopath) as f: rawinfo = [[float(x) for x in line.split()] for line in f]
         self.badAntenna = np.array(rawinfo[0], dtype=np.int)
         if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0) # XXX special significance for < 0?
         rawpair = np.array(rawinfo[1], dtype=np.int)
         if rawpair.shape[0] == 0 or rawpair.shape[0] % 2 != 0 or rawpair.min() < 0: # XXX shouldn't accept bad states
             self.badUBLpair = np.array([])
-        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
+        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)//2,2))
         self.antennaLocationTolerance = rawinfo[2][0]
         for a in range(len(self.antennaLocation)):
             assert(len(rawinfo[a+3]) == 3)
@@ -199,7 +203,7 @@ class ArrayInfoLegacy(ArrayInfo):
         if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
         info = RedundantInfo()
         # exclude bad antennas
-        info['subsetant'] = subsetant = np.array([i for i in xrange(self.antennaLocation.shape[0]) 
+        info['subsetant'] = subsetant = np.array([i for i in range(self.antennaLocation.shape[0]) 
                 if i not in self.badAntenna], dtype=np.int32)
         info['nAntenna'] = nAntenna = len(subsetant) # XXX maybe have C api automatically infer this
         info['antloc'] = antloc = np.array([self.antennaLocation[i] for i in subsetant], dtype=np.float32)
@@ -215,7 +219,7 @@ class ArrayInfoLegacy(ArrayInfo):
         def f(i,u):
             ubl2goodubl[i] = len(ubl2goodubl)
             return u
-        info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if not badUBL.has_key(i)], dtype=np.float32)
+        info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if i not in badUBL], dtype=np.float32)
         for k in badUBL: ubl2goodubl[k] = -1
         nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
         badubl = [ublall[i] for i in badUBL]
@@ -235,8 +239,8 @@ class ArrayInfoLegacy(ArrayInfo):
         tmp = []
         for p in bl2d:
             bl = (subsetant[p[0]],subsetant[p[1]])
-            if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
-            elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
+            if bl in self.totalVisibilityId_dic: tmp.append(p)
+            elif bl[::-1] in self.totalVisibilityId_dic: tmp.append(p[::-1])
         bl2d = np.array(tmp, dtype=np.int32)
         crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
         nBaseline = len(bl2d)

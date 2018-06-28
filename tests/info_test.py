@@ -1,5 +1,6 @@
+from __future__ import absolute_import, division, print_function
 import unittest, omnical.info as Oi, omnical._omnical as _O
-import omnical.calibration_omni as omni
+#import omnical.calibration_omni as omni
 import numpy as np
 import os
 
@@ -168,7 +169,7 @@ class TestFCRedInfo(TestRedInfo):
         i = Oi.FirstCalRedundantInfo()
         i.init_from_reds(reds,antpos)
         for bp in blpairs:
-            self.assertTrue(np.all(i.blpair2antind(bp) == map(i.ant_index,np.array(bp).flatten())))
+            self.assertTrue(np.all(i.blpair2antind(bp) == list(map(i.ant_index,np.array(bp).flatten()))))
          
         
              

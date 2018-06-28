@@ -1,16 +1,20 @@
+# -*- coding: utf-8 -*-
+
 '''XXX DOCSTRING'''
 # XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
 # XXX clean house on commented code?
 # XXX obey python style conventions
+
+from __future__ import absolute_import, division, print_function
 import math, ephem, time
 import multiprocessing as mp
 import struct
 import numpy as np
 import os, sys
-import _omnical as _O
+from . import _omnical as _O
 from copy import deepcopy
-import info
-from arrayinfo import ArrayInfo, ArrayInfoLegacy
+from . import info
+from .arrayinfo import ArrayInfo, ArrayInfoLegacy
 import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -20,7 +24,7 @@ with warnings.catch_warnings():
     try:
         from numpy import nanmedian as nanmedian
     except:
-        print "WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+."
+        print("WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+.")
         from scipy.stats import nanmedian
 
 __version__ = '5.0.2'
@@ -34,7 +38,7 @@ class FirstCalRedundantInfo(info.FirstCalRedundantInfo):
         a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect
         the conjugation convention of the provided data.  'dd' values are 2D arrays
         of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
-        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
+        return np.array([dd[bl] if bl in dd else dd[bl[::-1]].conj()
             for bl in self.bl_order()]).transpose((1,2,0))
 
 
@@ -53,7 +57,7 @@ class RedundantInfo(info.RedundantInfo):
         a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect
         the conjugation convention of the provided data.  'dd' values are 2D arrays
         of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
-        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
+        return np.array([dd[bl] if bl in dd else dd[bl[::-1]].conj()
             for bl in self.bl_order()]).transpose((1,2,0))
 
     def pack_calpar(self, calpar, gains=None, vis=None):
@@ -71,13 +75,13 @@ class RedundantInfo(info.RedundantInfo):
 
         if gains is not None:
             for i,ai in enumerate(self.subsetant):
-                if not gains.has_key(ai): continue
+                if ai not in gains: continue
                 amp = np.log10(np.abs(gains[ai])); amp.shape = ((1,) + amp.shape)[-2:]
                 # XXX does phs need to be conjugated b/c omnical & aipy don't have same conj convention?
                 phs = np.angle(gains[ai]); phs.shape = ((1,) + phs.shape)[-2:] 
                 calpar[...,3+i], calpar[...,3+nant+i] = amp, phs
         if vis is not None:
-            for (ai,aj),v in vis.iteritems():
+            for (ai,aj),v in vis.items():
                 i,j = self.ant_index(ai), self.ant_index(aj)
                 n = self.bl1dmatrix[i,j] # index of this bl in self.bl2d
                 u = self.bltoubl[n] # index of ubl that this bl corresponds to
@@ -100,14 +104,14 @@ class RedundantInfo(info.RedundantInfo):
         for i,ai in enumerate(self.subsetant):
             gains[ai] = 10**calpar[...,3+i] * np.exp(1j*calpar[...,3+self.nAntenna+i])
             meta['chisq%d' % (ai)] = chisq_per_ant[...,i]
-        for u in xrange(len(self.ublcount)):
+        for u in range(len(self.ublcount)):
             # XXX possible that frombuffer might do this a bit more efficiently
             v = calpar[...,3+2*self.nAntenna+2*u] + 1j*calpar[...,3+2*self.nAntenna+2*u+1]
             n = self.ublindex[np.sum(self.ublcount[:u])]
             i,j = self.bl2d[n]
             vis[(self.subsetant[i],self.subsetant[j])] = v
         if res is not None:
-            res = dict(zip(map(tuple,self.subsetant[self.bl2d]), res.transpose([2,0,1])))
+            res = dict(list(zip(list(map(tuple,self.subsetant[self.bl2d])), res.transpose([2,0,1]))))
             meta['res'] = res
         return meta, gains, vis
 
@@ -435,19 +439,19 @@ class RedundantCalibrator:
             np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
             threads[i] = mp.Process(target = _redcal, args = (data[:,fchunk[i][0]:fchunk[i][1],:], rawCalpar[i], self.Info, additivein[:,fchunk[i][0]:fchunk[i][1],:], additiveouts[i]), kwargs=kwarg)
         if verbose:
-            print "Starting %s Process"%cal_name[uselogcal],
+            print("Starting %s Process"%cal_name[uselogcal], end=' ')
             sys.stdout.flush()
         for i in range(nthread):
             if verbose:
-                print "#%i"%i,
+                print("#%i"%i, end=' ')
                 sys.stdout.flush()
             threads[i].start()
-        if verbose: print "Finished Process",
+        if verbose: print("Finished Process", end=' ')
         for i in range(nthread):
             threads[i].join()
-            if verbose: print "#%i"%i,
+            if verbose: print("#%i"%i, end=' ')
         if verbose:
-            print ""
+            print("")
             sys.stdout.flush()
         self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
         return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
@@ -482,7 +486,7 @@ class RedundantCalibrator:
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
         jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
         sa = ephem.Observer()
-        for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
+        for utctime, t in zip(self.utctimes, list(range(len(self.utctimes)))):
             sa.date = utctime
             jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
         omnichisq = np.zeros((self.nTime, 2 + 1 + self.nFrequency), dtype = 'float32')
@@ -498,7 +502,7 @@ class RedundantCalibrator:
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
         jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
         sa = ephem.Observer()
-        for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
+        for utctime, t in zip(self.utctimes, list(range(len(self.utctimes)))):
             sa.date = utctime
             jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
         omnigain = np.zeros((self.nTime, self.Info.nAntenna, 2 + 1 + 1 + 2 * self.nFrequency), dtype = 'float32')
@@ -517,7 +521,7 @@ class RedundantCalibrator:
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
         jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
         sa = ephem.Observer()
-        for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
+        for utctime, t in zip(self.utctimes, list(range(len(self.utctimes)))):
             sa.date = utctime
             jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
         omnifit = np.zeros((self.nTime, len(self.Info.ublcount), 2 + 3 + 1 + 2 * self.nFrequency), dtype = 'float32')
@@ -575,15 +579,15 @@ class RedundantCalibrator:
         bad_count = (np.mean(bad_count,axis=0)/float(np.sum(~flag))**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         if verbose:
-            print "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: "%healthbar
+            print("DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: "%healthbar)
             for a in range(len(bad_count)):
                 if bad_count[a] > healthbar:
-                    print "antenna #%i, vector = %s, badness = %i"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
+                    print("antenna #%i, vector = %s, badness = %i"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a]))
             if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
-                print "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: "%ubl_healthbar
+                print("DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: "%ubl_healthbar)
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
-                        print "index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
+                        print("index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a]))
         if not ouput_txt: return bad_count, bad_ubl_count
         else:
             txt = ''
@@ -732,7 +736,7 @@ class RedundantCalibrator_X5(RedundantCalibrator):
         self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i, nant)] for i in range(nant)])
         self._gen_totalVisibilityId_dic()
 
-        self.badAntenna = range(16) + range(56,60) + [16,19,50]
+        self.badAntenna = list(range(16)) + list(range(56,60)) + [16,19,50]
 
 # XXX omnical should not be in charge of storing these quantities to disk.  this should be up to the user
 def load_omnichisq(path):
@@ -863,9 +867,9 @@ def lin_depend(v1, v2, tol = 0):
 # XXX utility function belongs in another file
 def _f(rawcal_ubl=[], verbose=False):
     '''run this function twice in a row and its christmas'''
-    if verbose and rawcal_ubl != []: print "Starting ubl:", rawcal_ubl
+    if verbose and rawcal_ubl != []: print("Starting ubl:", rawcal_ubl)
     if rawcal_ubl == []: rawcal_ubl += [2,3]
-    if verbose: print "ubl:", rawcal_ubl
+    if verbose: print("ubl:", rawcal_ubl)
 
 def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     '''return (intialantenna, solution_path) for raw calibration. solution path
@@ -876,29 +880,29 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     calpar. Afterwards, use mean angle on calpars'''
     ###select 2 ubl for calibration
     rawcal_ubl = list(input_rawcal_ubl)
-    if verbose and rawcal_ubl != []: print "Starting ubl:", rawcal_ubl
+    if verbose and rawcal_ubl != []: print("Starting ubl:", rawcal_ubl)
     if rawcal_ubl == []:
         ublcnt_tmp = info['ublcount'].astype('float')
         rawcal_ubl += [np.argmax(ublcnt_tmp)]
         if verbose:
-            print "Picking %s with redundancy %i as first ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
+            print("Picking %s with redundancy %i as first ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]]))
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         rawcal_ubl += [np.nanargmax(ublcnt_tmp)]
         if verbose:
-            print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
+            print("Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]]))
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         #while np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), info['ubl'][rawcal_ubl[1]]) or np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), -info['ubl'][rawcal_ubl[1]]):
         while lin_depend(info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]], tol=tol):
             if verbose:
-                print info['ubl'][rawcal_ubl[0]], "and", info['ubl'][rawcal_ubl[1]], "are linearly dependent."
+                print(info['ubl'][rawcal_ubl[0]], "and", info['ubl'][rawcal_ubl[1]], "are linearly dependent.")
             try:
                 rawcal_ubl[1] = np.nanargmax(ublcnt_tmp)
                 if verbose:
-                    print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
+                    print("Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]]))
             # XXX this not good
             except: raise Exception("Cannot find two unique bls that are linearly independent!")
             ublcnt_tmp[rawcal_ubl[-1]] = np.nan
-    if verbose: print "ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]]
+    if verbose: print("ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]])
     if info['ublcount'][rawcal_ubl[0]] + info['ublcount'][rawcal_ubl[1]] <= info['nAntenna'] + 2:
         raise Exception('Array not redundant enough! Two most redundant bls %s and %s have %i and %i bls, which is not larger than 2 + %i'%(info['ubl'][rawcal_ubl[0]],info['ubl'][rawcal_ubl[1]], info['ublcount'][rawcal_ubl[0]],info['ublcount'][rawcal_ubl[1]], info['nAntenna']))
 
@@ -912,7 +916,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     for a in range(len(antcnt)):
         if antcnt[a] == 0:
             unsolved_ant.append(a)
-    if verbose: print "antcnt", antcnt, "Antennas", np.array(info['subsetant'])[unsolved_ant], "not directly solvable."
+    if verbose: print("antcnt", antcnt, "Antennas", np.array(info['subsetant'])[unsolved_ant], "not directly solvable.")
 
 
     ###Status string for ubl: NoUse: none of the two ants have been solved; Solvable: at least one of the ants have solutions; Done: used to generate one antennacalpar
@@ -922,7 +926,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     calpar = np.array([[]] * info['nAntenna']).tolist()
     ###select initial antenna
     initialant = int(np.argmax(antcnt))
-    if verbose: print "initialant", np.array(info['subsetant'])[initialant]
+    if verbose: print("initialant", np.array(info['subsetant'])[initialant])
     calpar[initialant].append(0)
     for i in range(len(ublstatus)):
         if initialant in ublindex[i, 0:2]:
@@ -930,7 +934,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
 
     ###start looping
     solvecnt = 10#number of solved bls in each loop, 10 is an arbitrary starting point
-    if verbose: print "new ant solved",
+    if verbose: print("new ant solved", end=' ')
     while solvecnt > 0:
         solvecnt = 0
         for i in range(len(ublstatus)):
@@ -943,7 +947,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                     solution_path.append([ublindex[i], 0])
                     #print len(calpar[ublindex[i, 1]]), calpar[ublindex[i, 1]]
                     if len(calpar[ublindex[i, 1]]) == 1:
-                        if verbose: print np.array(info['subsetant'])[ublindex[i, 1]],
+                        if verbose: print(np.array(info['subsetant'])[ublindex[i, 1]], end=' ')
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 1] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
@@ -954,18 +958,18 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                     solution_path.append([ublindex[i], 1])
                     #print len(calpar[ublindex[i, 0]]), calpar[ublindex[i, 0]]
                     if len(calpar[ublindex[i, 0]]) == 1:
-                        if verbose: print np.array(info['subsetant'])[ublindex[i, 0]],
+                        if verbose: print(np.array(info['subsetant'])[ublindex[i, 0]], end=' ')
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 0] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
     if verbose:
-        print ""
+        print("")
         if len(solution_path) != len(ublindex):
-            print "Solution path has %i entries where as total candidates in ublindex have %i. The following bls form their isolated isaland:"%(len(solution_path), len(ublindex))
+            print("Solution path has %i entries where as total candidates in ublindex have %i. The following bls form their isolated isaland:"%(len(solution_path), len(ublindex)))
             unsolved_ubl = []
             for i in range(len(ublstatus)):
                 if ublstatus[i] != "Done":
-                    print np.array(info['subsetant'])[ublindex[i][0]], np.array(info['subsetant'])[ublindex[i][1]]
+                    print(np.array(info['subsetant'])[ublindex[i][0]], np.array(info['subsetant'])[ublindex[i][1]])
                     unsolved_ubl.append(ublindex[i])
             unsolved_ubl = np.array(unsolved_ubl)[:,:2].flatten()
             for a in range(info['nAntenna']):
@@ -977,7 +981,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
 
         ant_solved = 0
         for a in unsolved_ant:
-            if verbose: print "trying to solve for ", np.array(info['subsetant'])[a],
+            if verbose: print("trying to solve for ", np.array(info['subsetant'])[a], end=' ')
             ublcnt_tmp = info['ublcount'].astype('float')
             third_ubl_good = False
             tried_all_ubl = False
@@ -988,7 +992,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 except:
                     tried_all_ubl = True
                     break
-                if verbose: print "trying ubl ", third_ubl,
+                if verbose: print("trying ubl ", third_ubl, end=' ')
                 third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another bls whose two ants are both solved
                 if (len(info['ublindex'][third_ubl]) < 2) or (a not in info['ublindex'][third_ubl]):
                     continue
@@ -1006,7 +1010,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 third_ubl_good = (third_ubl_good1 and third_ubl_good2)
             if third_ubl_good:#figure out how to use this third ubl to solve this a
                 if verbose:
-                    print "picked ubl", info['ubl'][third_ubl], "to solve for ant", np.array(info['subsetant'])[a]
+                    print("picked ubl", info['ubl'][third_ubl], "to solve for ant", np.array(info['subsetant'])[a])
                 get_ubl_fit = []#a recipe for how to get the ublfit and solvefor the unsolved antenna
                 for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
@@ -1050,7 +1054,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     A = np.array([bl1, bl2])
     remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
     degeneracy_remove = [a1, a2, remove_Matrix]
-    if verbose: print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
+    if verbose: print("Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2]))
     return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
 def meanAngle(a, weights = None, axis = -1):
@@ -1284,7 +1288,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     coarseb[0] = medianAngle(coarseb0_candidate, axis=0)
     coarseb[1] = medianAngle(coarseb1_candidate, axis=0)
     if verbose:
-        print coarseb0_candidate.shape
+        print(coarseb0_candidate.shape)
     # find coarse solutions
     try: icA = la.inv(coarseA)
     # XXX this bad
@@ -1294,7 +1298,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         iA = la.inv(A.transpose().dot(A))
     # XXX this bad
     except: raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
-    if verbose: print iA.shape
+    if verbose: print(iA.shape)
     if b.ndim > 2:
         extra_shape = b.shape[1:]
         flat_extra_dim = 1
@@ -1304,11 +1308,11 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     else: extra_shape = None
     result = icA.dot(coarseb)
     if verbose:
-        print coarseA
-        print result
+        print(coarseA)
+        print(result)
     for i in range(niter):
         result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
-        if verbose: print result
+        if verbose: print(result)
     if extra_shape is not None: result.shape = tuple(np.concatenate(([2], extra_shape)))
     return result
 

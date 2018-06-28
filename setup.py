@@ -1,7 +1,7 @@
-from distutils.core import setup, Extension
+from __future__ import absolute_import, division, print_function
+
+from setuptools import setup, Extension
 import os, glob, numpy
-
-
 
 #module = Extension('calibration_omni_extension',
                     #define_macros = [('MAJOR_VERSION', '0'),
@@ -37,7 +37,9 @@ setup(name = 'omnical',
     license = 'GPL',
     author = 'Jeff Zheng, Eric Yang, Aaron Parsons, Shana Tribiano, Adrian Liu, Zaki Ali',
     author_email = '',
-    url = '',
+    url = 'http://github.com/HERA-Team/omnical',
+    setup_requires = ['numpy>=1.2'],
+    install_requires = ['numpy>=1.2','scipy>=0.19'],
     package_dir = {'omnical':'src'},
     packages = ['omnical'],
     ext_modules = [
@@ -49,6 +51,6 @@ setup(name = 'omnical',
             extra_compile_args=['-Wno-write-strings', '-O3']
         )
     ],
-    scripts = ['scripts/firstcal4.py', 'scripts/omnical4.py', 'scripts/omnical_PSA128.py', 'scripts/omnical2npz.py', 'scripts/plot_omni.py', 'scripts/plot_treasure.py', 'scripts/first_cal.py', 'scripts/bury_treasure.py', 'scripts/apply_omnigain.py', 'scripts/dr_compress.py'],
+    scripts = [],
 )
 

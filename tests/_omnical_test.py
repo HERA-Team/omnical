@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function
 import unittest, omnical._omnical as _O
 import omnical.info as Oi
 import numpy as np
@@ -21,7 +23,7 @@ class TestMethods(unittest.TestCase):
         self.assertAlmostEqual(_O.phase(-1.,0.), np.pi, 5)
 
     def test_redcal_log(self):
-        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        data = np.ones((10,20,32*33//2), dtype=np.complex64)
         additivein = np.zeros_like(data)
         calpar = np.zeros((10,20,self.calpar_size),dtype='float32')
         additiveout = _O.redcal(data, calpar, self.i, additivein, uselogcal=True, removedegen=False, uselincal=False)
@@ -31,7 +33,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(additiveout == 0))
 
     def test_redcal_log_inplace(self):
-        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        data = np.ones((10,20,32*33//2), dtype=np.complex64)
         additivein = np.zeros_like(data)
         additiveout = np.zeros_like(data) + 1 + 1j
         calpar = np.zeros((10,20,self.calpar_size),dtype='float32')
@@ -42,7 +44,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(additiveout == 0))
 
     def test_redcal_lin(self):
-        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        data = np.ones((10,20,32*33//2), dtype=np.complex64)
         additivein = np.zeros_like(data)
         calpar = np.zeros((10,20,self.calpar_size),dtype='float32')
         additiveout = _O.redcal(data, calpar, self.i, additivein, uselincal=True, uselogcal=False, removedegen=False)
@@ -57,7 +59,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(additiveout == 0))
 
     def test_redcal_lin_inplace(self):
-        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        data = np.ones((10,20,32*33//2), dtype=np.complex64)
         additivein = np.zeros_like(data)
         additiveout = np.zeros_like(data) + 1 + 1j
         calpar = np.zeros((10,20,self.calpar_size),dtype='float32')

@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function
 import omnical.info as Oi, omnical.calib as Oc, omnical._omnical as _O
 #import omnical.calibration_omni as omni
 import numpy as np, numpy.linalg as la
@@ -49,15 +50,15 @@ class TestRedundantInfo(unittest.TestCase):
         for k in antchisq:
             self.assertTrue(np.all(m[k] == 0))
         self.assertEqual(len(g), 32)
-        for i in xrange(32):
+        for i in range(32):
             self.assertTrue(np.all(g[i] == 1)) # 1 b/c 10**0 = 1
         self.assertEqual(len(v), len(self.info.ublcount))
         ubls = {}
         for i,j in v:
             n = self.info.bl1dmatrix[i,j]
             ubls[self.info.bltoubl[n]] = n
-        for u in xrange(len(self.info.ublcount)):
-            self.assertTrue(ubls.has_key(u))
+        for u in range(len(self.info.ublcount)):
+            self.assertTrue(u in ubls)
     def test_order_data(self):
         antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
         reds = [[(0,1),(1,2),(2,3)],[(0,2),(1,3)]]
@@ -122,7 +123,7 @@ class TestMethods(unittest.TestCase):
         self.unitdata = {(ai, aj): np.ones((self.times.size, self.freqs.size), dtype=np.complex64) for ai,aj in self.info2.bl_order()}
     def test_redcal(self):
         #check that logcal give 0 chi2 for all 20 testinfos
-        for index in xrange(20):
+        for index in range(20):
             arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_array_info.txt'
             c = Oc.RedundantCalibrator(56)
             c.compute_redundantinfo(arrayinfopath, tol=.1)
@@ -137,11 +138,11 @@ class TestMethods(unittest.TestCase):
                 rawinfo = [[float(x) for x in line.split()] for line in f]
             temp = np.array(rawinfo[:-1])
             correctcalpar = (np.array(temp[:,0]) + 1.0j*np.array(temp[:,1]))
-            i = g.keys()[0]
+            i = list(g.keys())[0]
             scalar = correctcalpar[i].real / g[i].real
-            for i in xrange(56):
-                if not g.has_key(i): continue
-                self.assertAlmostEqual(np.abs(correctcalpar[i] - g[i] * scalar), 0, 4)
+            for i in range(56):
+                if not i in g: continue
+                np.testing.assert_almost_equal(np.abs(correctcalpar[i] - g[i] * scalar), 0, 4)
 
     def test_logcal(self):
         m, g, v = Oc.logcal(self.unitdata, self.info2)
@@ -187,7 +188,7 @@ class TestLogCalLinCalAndRemoveDegen(unittest.TestCase):
         Mgains = np.linalg.pinv(Rgains.T.dot(Rgains)).dot(Rgains.T) 
         Rvis = np.hstack((-info.ubl, np.zeros((len(info.ubl),1))))
         reds = info.get_reds()
-        ntimes, nfreqs = gains.values()[0].shape
+        ntimes, nfreqs = list(gains.values())[0].shape
         
         for t in range(ntimes):
             for f in range(nfreqs):
@@ -279,7 +280,7 @@ class TestLogCalLinCalAndRemoveDegen(unittest.TestCase):
         #Test that the solution has degeneracies removed properly
         Rgains =  np.array([np.append(ai,1) for ai in info.antloc]) 
         Mgains = np.linalg.pinv(Rgains.T.dot(Rgains)).dot(Rgains.T) 
-        ntimes, nfreqs = g3.values()[0].shape
+        ntimes, nfreqs = list(g3.values())[0].shape
         for t in range(ntimes):
             for f in range(nfreqs):
                 gainSols = np.array([g3[ai][t,f]/fcgains[ai][t,f] for ai in info.subsetant])
@@ -332,7 +333,7 @@ class TestRedCal(unittest.TestCase):
             npz = np.load(testdata % index)
             bls = [tuple(bl) for bl in npz['bls']]
             dd = dict(zip(bls, npz['vis']))
-            data = np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj() for bl in info.bl_order()]).transpose((1,2,0))
+            data = np.array([dd[bl] if bl in dd else dd[bl[::-1]].conj() for bl in info.bl_order()]).transpose((1,2,0))
             #data = info.order_data(dd) # order_data not native to info.RedundantInfo.
             ####do calibration################
             calibrator.removeDegeneracy = True
@@ -378,7 +379,7 @@ class TestRedCal(unittest.TestCase):
         npz = np.load(testdata % (fileindex-1))
         bls = [tuple(bl) for bl in npz['bls']]
         dd = dict(zip(bls, npz['vis']))
-        data = np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj() for bl in info.bl_order()]).transpose((1,2,0))
+        data = np.array([dd[bl] if bl in dd else dd[bl[::-1]].conj() for bl in info.bl_order()]).transpose((1,2,0))
         #data = info.order_data(dd)
 
         ####Config parameters###################################

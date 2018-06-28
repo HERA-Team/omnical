@@ -21,7 +21,7 @@ typedef struct {
 
 // Deallocate memory when Python object is deleted
 static void RedInfoObject_dealloc(RedInfoObject* self) {
-    self->ob_type->tp_free((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 // Allocate memory for Python object and redundantinfo (__new__)
@@ -595,9 +595,10 @@ static PyGetSetDef RedInfoObject_getseters[] = {
 };
 
 PyTypeObject RedInfoType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
-    "RedundantInfo", /*tp_name*/
+    //PyObject_HEAD_INIT(NULL)
+    PyVarObject_HEAD_INIT(NULL, 0)
+//    0,                         /*ob_size*/
+    "_omnical.RedundantInfo", /*tp_name*/
     sizeof(RedInfoObject), /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor)RedInfoObject_dealloc, /*tp_dealloc*/
@@ -624,7 +625,8 @@ PyTypeObject RedInfoType = {
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
     0,                      /* tp_methods */
-    NULL,                    /* tp_members */
+    //NULL,                    /* tp_members */
+    0,                    /* tp_members */
     RedInfoObject_getseters,     /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
@@ -985,17 +987,30 @@ static PyMethodDef omnical_methods[] = {
     {NULL, NULL}  /* Sentinel */
 };
 
-#ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
-#define PyMODINIT_FUNC void
-#endif
+// XXX?
+//#ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
+//#define PyMODINIT_FUNC void
+//#endif
 
-PyMODINIT_FUNC init_omnical(void) {
+//PyMODINIT_FUNC init_omnical(void) {
+MOD_INIT(_omnical) {
     PyObject* m;
+
+    Py_Initialize();
+    
     RedInfoType.tp_new = PyType_GenericNew;
-    if (PyType_Ready(&RedInfoType) < 0) return;
-    m = Py_InitModule3("_omnical", omnical_methods,
-    "Wrapper for Omnical redundant calibration code.");
+    if (PyType_Ready(&RedInfoType) < 0) 
+        return MOD_ERROR_VAL;
+
+    MOD_DEF(m, "_omnical", omnical_methods, \
+        "Wrapper for Omnical redundant calibration code.");
+    if (m == NULL)
+        return MOD_ERROR_VAL;
+
+    import_array();
+
     Py_INCREF(&RedInfoType);
     PyModule_AddObject(m, "RedundantInfo", (PyObject *)&RedInfoType);
-    import_array();
+
+    return MOD_SUCCESS_VAL(m);
 }
