@@ -1,5 +1,6 @@
+from __future__ import absolute_import, division, print_function
 import unittest, omnical.info as Oi, omnical._omnical as _O
-import omnical.calibration_omni as omni
+#import omnical.calibration_omni as omni
 import numpy as np
 import os
 

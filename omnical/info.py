@@ -1,4 +1,6 @@
-import _omnical as _O
+# -*- coding: utf-8 -*-
+from __future__ import print_function, division, absolute_import
+from . import _omnical as _O
 import numpy as np, numpy.linalg as la
 import warnings
 with warnings.catch_warnings():
@@ -90,11 +92,12 @@ class RedundantInfo(_O.RedundantInfo):
             for (i,j) in ubl_gp:
                 ants[i] = ants.get(i,0) + 1
                 ants[j] = ants.get(j,0) + 1
-        self.subsetant = np.array(ants.keys(), dtype=np.int32)
+        ants_keys = sorted(ants.keys())
+        self.subsetant = np.array(list(ants_keys), dtype=np.int32)
         bl2d = np.array([(self.ant_index(i),self.ant_index(j),u) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         self.bl2d = bl2d[:,:2]
         self.bltoubl = bl2d[:,2]
-        self.blperant = np.array([ants[a] for a in sorted(ants.keys())], dtype=int)
+        self.blperant = np.array([ants[a] for a in ants_keys], dtype=int)
         
     def init_from_reds(self, reds, antpos):
         '''Initialize RedundantInfo from a list where each entry is a group of redundant baselines.
@@ -221,30 +224,31 @@ class RedundantInfoLegacy(RedundantInfo):
         return dd
     def fromfile_txt(self, filename, verbose=False):
         '''Initialize from (txt) file.  This is a legacy interface; writing to txt files is no longer supported.'''
-        if verbose: print 'Reading redundant info from %s' % filename
-        d = np.array([np.array(map(float, line.split())) for line in open(filename)])
+        if verbose: print('Reading redundant info from %s' % filename)
+        with open(filename) as f:
+            d = np.array([np.array(list(map(float, line.split()))) for line in f])
         self.from_array(d, verbose=verbose)
         self.update()
-        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
+        if verbose: print("done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline))
     def tofile(self, filename, overwrite=False, verbose=False):
         '''XXX DOCSTRING'''
         assert(not os.path.exists(filename) or overwrite)
-        if verbose: print 'Writing info to', filename
+        if verbose: print('Writing info to', filename)
         d = self.to_array(verbose=verbose)
         f = open(filename,'wb')
         d.tofile(f)
         f.close()
-        if verbose: print "Info file successfully written to", filename
+        if verbose: print("Info file successfully written to", filename)
     def fromfile(self, filename, verbose=False, preview_only=False): # XXX what is preview?
         '''Initialize from (binary) file.'''
-        if verbose: print 'Reading redundant info from %s' % filename
+        if verbose: print('Reading redundant info from %s' % filename)
         datachunk = np.fromfile(filename)
         markerindex = np.where(datachunk == MARKER)[0]
         # XXX uneven array
         d = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
         self.from_array(d, verbose=verbose, preview_only=preview_only) # XXX do i need to store preview return case?
         self.update()
-        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
+        if verbose: print("done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline))
     def to_array(self, verbose=False):
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         d = KEYS
@@ -348,27 +352,27 @@ class RedundantInfoLegacy(RedundantInfo):
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
             diff = []
             for key in floatkeys:
-                if verbose: print key, 'checking'
+                if verbose: print(key, 'checking')
                 #ok = np.allclose(self[key], info[key], tol)
                 ok = round(la.norm(np.array(self[key])-np.array(info[key]))/tol) == 0
-                if verbose: print key, ok
+                if verbose: print(key, ok)
                 if not ok: return False
                 #try: diff.append(round(la.norm(np.array(self[key])-np.array(info[key]))/tol)==0)
                 #except: diff.append(False)
             for key in intkeys:
-                if verbose: print key, 'checking'
+                if verbose: print(key, 'checking')
                 ok = la.norm(np.array(self[key])-np.array(info[key])) == 0
-                if verbose: print key, ok
+                if verbose: print(key, ok)
                 if not ok: return False
                 #try: diff.append(la.norm(np.array(self[key])-np.array(info[key]))==0)
                 #except: diff.append(False)
             for key in infomatrices:
-                if verbose: print key, 'checking'
+                if verbose: print(key, 'checking')
                 # XXX made a switch here. ok?
                 #ok = la.norm(np.array(self[key])-np.array(info[key])) == 0
                 #ok = la.norm((self[key]-info[key]).todense()) == 0
                 ok = np.all(self[key].todense() == info[key].todense())
-                if verbose: print key, ok
+                if verbose: print(key, ok)
                 if not ok: return False
                 #try: diff.append(la.norm((self[key]-info[key]).todense())==0)
                 #except: diff.append(False)
@@ -379,8 +383,8 @@ class RedundantInfoLegacy(RedundantInfo):
             #print the first key found different (this will only trigger when the two info's have the same shape, so probably not very useful)
             if verbose and not bool:
                 for i in range(len(diff)):
-                    if not diff[i]: print allkeys[i]
+                    if not diff[i]: print(allkeys[i])
             return bool
         except(ValueError):
-            print "info doesn't have the same shape"
+            print("info doesn't have the same shape")
             return False

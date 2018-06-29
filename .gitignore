@@ -1,4 +1,8 @@
 build
+dist
 *.pyc
 *.DS_Store
-
+.coverage
+.coverage*
+*.so
+omnical.egg-info
