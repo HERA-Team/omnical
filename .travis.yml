@@ -2,6 +2,7 @@ language: python
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
+  - "3.6"
 install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
@@ -22,9 +23,11 @@ install:
   # create environment and install dependencies
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy nose pip
   - source activate test-environment
-  - conda install -c conda-forge aipy
-#  - pip install git+https://github.com/HERA-Team/pyuvdata.git@cal
-#  - pip install git+https://github.com/zakiali/omnical.git
-  - python setup.py install
+  - conda install -c conda-forge aipy coveralls
 
-script: nosetests tests/calib_test.py tests/info_test.py tests/_omnical_test.py tests/arrayinfo_test.py
+script:
+  - python setup.py build_ext --force --inplace
+  - nosetests tests/calib_test.py tests/info_test.py tests/_omnical_test.py tests/arrayinfo_test.py --with-coverage --cover-package=omnical
+
+after_success:
+  - coveralls
