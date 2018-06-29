@@ -40,14 +40,14 @@ setup(name = 'omnical',
     url = 'http://github.com/HERA-Team/omnical',
     setup_requires = ['numpy>=1.2'],
     install_requires = ['numpy>=1.2','scipy>=0.19'],
-    package_dir = {'omnical':'src'},
+    package_dir = {'omnical':'omnical'},
     packages = ['omnical'],
     ext_modules = [
         Extension('omnical._omnical',
-            ['src/_omnical/omnical_wrap.cpp','src/_omnical/omnical_redcal.cc'],
+            ['omnical/_omnical/omnical_wrap.cpp','omnical/_omnical/omnical_redcal.cc'],
             #globdir('src/_omnical/',
             #    ['*.cpp', '*.c', '*.cc']),
-            include_dirs = ['src/_omnical/include', numpy.get_include()],
+            include_dirs = ['omnical/_omnical/include', numpy.get_include()],
             extra_compile_args=['-Wno-write-strings', '-O3']
         )
     ],

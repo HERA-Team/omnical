@@ -24,9 +24,9 @@ install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy nose pip
   - source activate test-environment
   - conda install -c conda-forge aipy coveralls
-  - python setup.py install
 
 script:
+  - python setup.py build_ext --force --inplace
   - nosetests tests/calib_test.py tests/info_test.py tests/_omnical_test.py tests/arrayinfo_test.py --with-coverage --cover-package=omnical
 
 after_success:
